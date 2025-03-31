@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Commit {{ commit_id }}</title>
+  </head>
+  <body>
+    <h1>Commit {{ commit_id }}</h1>
+    <p>Message: {{ metadata.message }}</p>
+    <p>Timestamp: {{ metadata.timestamp }}</p>
+    <h2>Files:</h2>
+    <ul>
+      {% for filename, file_hash in metadata.files.items() %}
+      <li>{{ filename }} ({{ file_hash }})</li>
+      {% endfor %}
+    </ul>
+  </body>
+</html>

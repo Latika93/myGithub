@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Repository Browser</title>
+  </head>
+  <body>
+    <h1>Repository Files</h1>
+    <ul>
+      {% for file in files %}
+      <li><a href="/file/{{ file }}">{{ file }}</a></li>
+      {% endfor %}
+    </ul>
+    <h1>Commit History</h1>
+    <ul>
+      {% for commit in commits %}
+      <li><a href="/commit/{{ commit }}">{{ commit }}</a></li>
+      {% endfor %}
+    </ul>
+    <h1>Pull Requests</h1>
+    <a href="/pull_request/create">Create Pull Request</a>
+    <ul>
+      {% for pr in pull_requests %}
+      <li>
+        <a href="/pull_request/{{ pr.id }}">{{ pr.title }}</a> ({{ pr.status }})
+      </li>
+      {% endfor %}
+    </ul>
+  </body>
+</html>

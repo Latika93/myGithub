@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Pull Request {{ pr.id }}</title>
+  </head>
+  <body>
+    <h1>Pull Request {{ pr.id }}</h1>
+    <p>Title: {{ pr.title }}</p>
+    <p>Description: {{ pr.description }}</p>
+    <p>Source Branch: {{ pr.source_branch }}</p>
+    <p>Target Branch: {{ pr.target_branch }}</p>
+    <p>Status: {{ pr.status }}</p>
+    {% if pr.status == 'open' %}
+    <a href="/pull_request/{{ pr.id }}/merge">Merge</a>
+    {% endif %}
+  </body>
+</html>

@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Create Pull Request</title>
+  </head>
+  <body>
+    <h1>Create Pull Request</h1>
+    <form method="post" action="/pull_request/create">
+      <label>Title:</label><br />
+      <input type="text" name="title" /><br />
+      <label>Description:</label><br />
+      <textarea name="description"></textarea><br />
+      <label>Source Branch:</label><br />
+      <select name="source_branch">
+        {% for branch in branches %}
+        <option value="{{ branch }}">{{ branch }}</option>
+        {% endfor %}</select
+      ><br />
+      <label>Target Branch:</label><br />
+      <select name="target_branch">
+        {% for branch in branches %}
+        <option value="{{ branch }}">{{ branch }}</option>
+        {% endfor %}</select
+      ><br />
+      <input type="submit" value="Create" />
+    </form>
+  </body>
+</html>
