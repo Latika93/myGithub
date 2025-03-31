@@ -1,17 +1,371 @@
-<!DOCTYPE html>
-<html>
-  <head>
-    <title>Pull Request {{ pr.id }}</title>
-  </head>
-  <body>
-    <h1>Pull Request {{ pr.id }}</h1>
-    <p>Title: {{ pr.title }}</p>
-    <p>Description: {{ pr.description }}</p>
-    <p>Source Branch: {{ pr.source_branch }}</p>
-    <p>Target Branch: {{ pr.target_branch }}</p>
-    <p>Status: {{ pr.status }}</p>
-    {% if pr.status == 'open' %}
-    <a href="/pull_request/{{ pr.id }}/merge">Merge</a>
-    {% endif %}
-  </body>
-</html>
+{% extends "base.html" %}
+
+{% block title %}Pull Request #{{ pr.id }} - MyGit{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-md p-6">
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-2xl font-semibold text-gray-800 flex items-center">
+                <i class="fas fa-code-pull-request text-purple-500 mr-3"></i>
+                Pull Request #{{ pr.id }}: {{ pr.title }}
+            </h1>
+            <p class="text-gray-600 mt-1">{{ pr.source_branch }} → {{ pr.target_branch }}</p>
+        </div>
+        <div>
+            <a href="/" class="text-blue-500 hover:text-blue-700 flex items-center">
+                <i class="fas fa-arrow-left mr-2"></i> Back to Repository
+            </a>
+        </div>
+    </div>
+
+    <!-- PR Status Badge -->
+    <div class="mb-6">
+        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium 
+            {% if pr.status == 'open' %}bg-blue-100 text-blue-800
+            {% elif pr.status == 'merged' %}bg-purple-100 text-purple-800
+            {% else %}bg-gray-100 text-gray-800{% endif %}">
+            <span class="w-2 h-2 rounded-full mr-2
+                {% if pr.status == 'open' %}bg-blue-500
+                {% elif pr.status == 'merged' %}bg-purple-500
+                {% else %}bg-gray-500{% endif %}"></span>
+            {{ pr.status|title }}
+        </span>
+    </div>
+
+    <!-- PR Description -->
+    <div class="mb-6 border rounded-lg p-4 bg-gray-50">
+        <h2 class="text-lg font-semibold text-gray-700 mb-2">Description</h2>
+        <div class="prose max-w-none">
+            {{ pr.description|safe }}
+        </div>
+    </div>
+
+    <!-- PR Actions -->
+    <div class="mb-6 flex flex-wrap gap-2">
+        {% if pr.status == 'open' %}
+        <a href="/pull_request/{{ pr.id }}/merge" class="bg-purple-500 hover:bg-purple-600 text-white py-2 px-4 rounded shadow flex items-center">
+            <i class="fas fa-code-merge mr-2"></i> Merge Pull Request
+        </a>
+        <button id="approve-pr-btn" class="bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded shadow flex items-center">
+            <i class="fas fa-check mr-2"></i> Approve
+        </button>
+        <button id="request-changes-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white py-2 px-4 rounded shadow flex items-center">
+            <i class="fas fa-comment-dots mr-2"></i> Request Changes
+        </button>
+        <button id="reject-pr-btn" class="bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded shadow flex items-center">
+            <i class="fas fa-times mr-2"></i> Reject
+        </button>
+        {% else %}
+        <button disabled class="bg-gray-300 text-gray-600 py-2 px-4 rounded shadow flex items-center cursor-not-allowed">
+            <i class="fas fa-code-merge mr-2"></i> Already {{ pr.status }}
+        </button>
+        {% endif %}
+    </div>
+
+    <!-- Changed Files -->
+    <div class="mb-6">
+        <h2 class="text-lg font-semibold text-gray-700 mb-3">Changed Files</h2>
+        <div class="border rounded-lg overflow-hidden">
+            <div class="divide-y divide-gray-200" id="changed-files">
+                <!-- Files will be loaded here -->
+                <div class="p-4 text-gray-500 text-center">Loading changed files...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Diff Viewer -->
+    <div id="diff-container" class="hidden mb-6">
+        <div class="flex justify-between items-center mb-3">
+            <h2 class="text-lg font-semibold text-gray-700">Diff: <span id="diff-filename"></span></h2>
+            <button id="close-diff" class="text-gray-500 hover:text-gray-700">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="border rounded-lg overflow-hidden">
+            <div id="diff-view" class="p-4 overflow-x-auto">
+                <!-- Diff content will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Comments Section -->
+    <div class="mb-6">
+        <h2 class="text-lg font-semibold text-gray-700 mb-3">Comments</h2>
+        <div class="border rounded-lg overflow-hidden">
+            <div class="divide-y divide-gray-200">
+                <!-- Example comments -->
+                <div class="p-4">
+                    <div class="flex items-start mb-2">
+                        <div class="bg-blue-500 text-white rounded-full w-8 h-8 flex items-center justify-center mr-3">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <div>
+                            <div class="font-medium">User</div>
+                            <div class="text-sm text-gray-500">2 days ago</div>
+                        </div>
+                    </div>
+                    <div class="pl-11">
+                        <p>Looks good to me! I like the approach you took with this implementation.</p>
+                    </div>
+                </div>
+                <div class="p-4">
+                    <div class="flex items-start mb-2">
+                        <div class="bg-green-500 text-white rounded-full w-8 h-8 flex items-center justify-center mr-3">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <div>
+                            <div class="font-medium">Another User</div>
+                            <div class="text-sm text-gray-500">1 day ago</div>
+                        </div>
+                    </div>
+                    <div class="pl-11">
+                        <p>Could you explain why you chose this approach instead of the alternative we discussed?</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Add Comment Form -->
+            <div class="p-4 bg-gray-50">
+                <h3 class="text-md font-semibold text-gray-700 mb-2">Add a Comment</h3>
+                <div class="mb-3">
+                    <textarea id="comment-text" rows="3" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" placeholder="Write a comment..."></textarea>
+                </div>
+                <div class="flex justify-end">
+                    <button id="submit-comment" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                        Comment
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Request Changes Modal -->
+<div id="request-changes-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl p-6 max-w-md w-full">
+        <h3 class="text-lg font-bold mb-4">Request Changes</h3>
+        <div class="mb-4">
+            <label class="block text-gray-700 text-sm font-bold mb-2" for="change-request-message">
+                Describe the changes needed:
+            </label>
+            <textarea id="change-request-message" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" rows="5"></textarea>
+        </div>
+        <div class="flex justify-end">
+            <button id="close-request-changes-modal" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded mr-2">
+                Cancel
+            </button>
+            <button id="submit-request-changes" class="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded">
+                Submit Request
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Load changed files
+        loadChangedFiles();
+        
+        // Set up event handlers
+        setupEventHandlers();
+    });
+    
+    function loadChangedFiles() {
+        // In a real app, we would fetch the changed files from the server
+        // For now, we'll simulate with placeholder data
+        const changedFiles = [
+            { name: 'example.txt', status: 'modified' },
+            { name: 'README.md', status: 'added' },
+            { name: 'app.py', status: 'modified' }
+        ];
+        
+        const filesContainer = document.getElementById('changed-files');
+        
+        if (changedFiles.length === 0) {
+            filesContainer.innerHTML = '<div class="p-4 text-gray-500 text-center">No files changed</div>';
+            return;
+        }
+        
+        let filesHtml = '';
+        changedFiles.forEach(file => {
+            const statusClass = file.status === 'added' ? 'text-green-600' : 
+                               file.status === 'deleted' ? 'text-red-600' : 'text-blue-600';
+            const statusIcon = file.status === 'added' ? 'fa-plus-circle' : 
+                              file.status === 'deleted' ? 'fa-minus-circle' : 'fa-pen';
+            
+            filesHtml += `
+            <div class="p-3 hover:bg-gray-50">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <i class="fas ${statusIcon} ${statusClass} mr-2"></i>
+                        <span>${file.name}</span>
+                        <span class="ml-2 px-2 py-1 text-xs rounded ${statusClass} bg-opacity-10">
+                            ${file.status}
+                        </span>
+                    </div>
+                    <div>
+                        <button class="text-blue-500 hover:text-blue-700" onclick="showDiff('${file.name}')">
+                            <i class="fas fa-code mr-1"></i> View Diff
+                        </button>
+                    </div>
+                </div>
+            </div>`;
+        });
+        
+        filesContainer.innerHTML = filesHtml;
+    }
+    
+    function showDiff(filename) {
+        document.getElementById('diff-filename').textContent = filename;
+        
+        // In a real app, we would fetch the actual diff from the server
+        // For now, we'll generate some sample diff content
+        const diffContent = generateSampleDiff(filename);
+        
+        // Create diff2html visualization
+        const diff2htmlUi = new Diff2HtmlUI({
+            diff: diffContent,
+            outputFormat: 'side-by-side',
+            drawFileList: false,
+            matching: 'lines'
+        });
+        
+        const diffView = document.getElementById('diff-view');
+        diffView.innerHTML = '';
+        diff2htmlUi.draw(diffView);
+        
+        document.getElementById('diff-container').classList.remove('hidden');
+    }
+    
+    function generateSampleDiff(filename) {
+        const fileExt = filename.split('.').pop();
+        let diffContent = '';
+        
+        if (fileExt === 'py') {
+            diffContent = `
+diff --git a/${filename} b/${filename}
+index abc1234..def5678 100644
+--- a/${filename}
++++ b/${filename}
+@@ -10,7 +10,7 @@ def some_function():
+     # This is a sample python function
+     print("Hello World")
+-    return None
++    return True
+ 
+ def another_function():
+     """This is a docstring"""
+@@ -20,6 +20,9 @@ def another_function():
+     x = 10
+     y = 20
+     return x + y
++
++def new_function():
++    # This function was added in this pull request
++    return "New functionality"
+ `;
+        } else if (fileExt === 'md') {
+            diffContent = `
+diff --git a/${filename} b/${filename}
+index abc1234..def5678 100644
+--- a/${filename}
++++ b/${filename}
+@@ -1,6 +1,8 @@
+-# Old Project Title
++# New Project Title
+ 
+-This is an old project description.
++This is a new and improved project description.
++
++## Features Added in This Pull Request
+ 
+ ## Installation
+ 
+@@ -10,5 +12,6 @@ Install the dependencies:
+ cd project
+ pip install -r requirements.txt
+ ```
+-
++This will set up all needed dependencies.
++
+`;
+        } else {
+            diffContent = `
+diff --git a/${filename} b/${filename}
+index abc1234..def5678 100644
+--- a/${filename}
++++ b/${filename}
+@@ -1,5 +1,5 @@
+ This is a text file with some content
+-Old content to be removed
++New content that replaced the old line
+ 
+ More content here
+ 
+@@ -8,3 +8,6 @@ More content here
+ 
+ Last line of original file
++
++New content added at the end
++More new content
+`;
+        }
+        
+        return diffContent;
+    }
+    
+    function setupEventHandlers() {
+        // Close diff view
+        document.getElementById('close-diff').addEventListener('click', function() {
+            document.getElementById('diff-container').classList.add('hidden');
+        });
+        
+        // Comment submission
+        document.getElementById('submit-comment').addEventListener('click', function() {
+            const commentText = document.getElementById('comment-text').value;
+            if (commentText.trim()) {
+                alert(`Comment submitted: ${commentText}`);
+                document.getElementById('comment-text').value = '';
+                // In a real app, we would add the comment to the UI and send to the server
+            }
+        });
+        
+        // Approval
+        document.getElementById('approve-pr-btn').addEventListener('click', function() {
+            if (confirm('Are you sure you want to approve this pull request?')) {
+                alert('Pull request approved');
+                // In a real app, we would send the approval to the server
+            }
+        });
+        
+        // Rejection
+        document.getElementById('reject-pr-btn').addEventListener('click', function() {
+            if (confirm('Are you sure you want to reject this pull request?')) {
+                alert('Pull request rejected');
+                // In a real app, we would send the rejection to the server
+            }
+        });
+        
+        // Request changes modal
+        document.getElementById('request-changes-btn').addEventListener('click', function() {
+            document.getElementById('request-changes-modal').classList.remove('hidden');
+        });
+        
+        document.getElementById('close-request-changes-modal').addEventListener('click', function() {
+            document.getElementById('request-changes-modal').classList.add('hidden');
+        });
+        
+        document.getElementById('submit-request-changes').addEventListener('click', function() {
+            const message = document.getElementById('change-request-message').value;
+            if (message.trim()) {
+                alert(`Changes requested: ${message}`);
+                document.getElementById('request-changes-modal').classList.add('hidden');
+                // In a real app, we would send the request to the server
+            }
+        });
+    }
+</script>
+{% endblock %}

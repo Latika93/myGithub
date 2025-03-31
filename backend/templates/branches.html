@@ -1,0 +1,528 @@
+{% extends "base.html" %}
+
+{% block title %}Branches - MyGit{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-md p-6">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-semibold text-gray-800 flex items-center">
+            <i class="fas fa-code-branch text-yellow-500 mr-3"></i>
+            Branches
+        </h1>
+        <button id="create-branch-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white py-2 px-4 rounded shadow flex items-center">
+            <i class="fas fa-plus-circle mr-2"></i> New Branch
+        </button>
+    </div>
+
+    <div class="mb-6">
+        <div class="flex justify-between items-center mb-4">
+            <p class="text-gray-600">
+                Current branch: 
+                <span class="bg-green-100 text-green-800 px-2 py-1 rounded text-sm">{{ current_branch }}</span>
+            </p>
+            <div class="flex items-center">
+                <label for="branch-filter" class="text-gray-600 mr-2">Filter:</label>
+                <input type="text" id="branch-filter" class="border rounded py-1 px-2 text-sm" placeholder="Filter branches...">
+            </div>
+        </div>
+        
+        <div class="border rounded-lg overflow-hidden">
+            <div class="grid divide-y divide-gray-200" id="branch-list">
+                {% for branch in branches %}
+                <div class="branch-item p-4 hover:bg-gray-50" data-branch="{{ branch }}">
+                    <div class="flex justify-between items-center">
+                        <div class="flex items-center">
+                            <i class="fas fa-code-branch text-yellow-500 mr-3"></i>
+                            <div>
+                                <div class="font-medium text-gray-800">{{ branch }}</div>
+                                <div class="text-sm text-gray-500" id="branch-info-{{ branch }}">
+                                    <span class="branch-commit-id">Loading commit info...</span>
+                                </div>
+                            </div>
+                            {% if branch == current_branch %}
+                            <span class="ml-3 bg-green-100 text-green-800 px-2 py-1 rounded text-xs">current</span>
+                            {% endif %}
+                        </div>
+                        <div class="flex space-x-2">
+                            {% if branch != current_branch %}
+                            <button class="switch-branch-btn bg-blue-500 hover:bg-blue-600 text-white py-1 px-3 rounded text-sm">
+                                <i class="fas fa-exchange-alt mr-1"></i> Switch
+                            </button>
+                            {% endif %}
+                            <button class="view-commits-btn text-blue-500 hover:text-blue-700 py-1 px-2">
+                                <i class="fas fa-history mr-1"></i> History
+                            </button>
+                            <button class="branch-actions-btn text-gray-500 hover:text-gray-700 py-1 px-2">
+                                <i class="fas fa-ellipsis-v"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-8">
+        <h2 class="text-xl font-semibold text-gray-800 mb-4">Branch Comparison</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+                <label for="compare-branch1" class="block text-sm font-medium text-gray-700 mb-1">Source Branch</label>
+                <select id="compare-branch1" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 rounded-md">
+                    {% for branch in branches %}
+                    <option value="{{ branch }}" {% if branch == current_branch %}selected{% endif %}>{{ branch }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label for="compare-branch2" class="block text-sm font-medium text-gray-700 mb-1">Target Branch</label>
+                <select id="compare-branch2" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 rounded-md">
+                    {% for branch in branches %}
+                    <option value="{{ branch }}" {% if branch != current_branch and loop.index0 == 0 %}selected{% endif %}>{{ branch }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="flex justify-center">
+            <button id="compare-branches-btn" class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded shadow flex items-center">
+                <i class="fas fa-code-compare mr-2"></i> Compare Branches
+            </button>
+        </div>
+    </div>
+
+    <!-- Comparison Results (Hidden Initially) -->
+    <div id="comparison-results" class="mt-6 border rounded-lg overflow-hidden hidden">
+        <div class="bg-gray-100 p-3 border-b flex justify-between items-center">
+            <h3 class="text-lg font-medium">Comparison Results</h3>
+            <button id="close-comparison" class="text-gray-500 hover:text-gray-700">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div id="comparison-content" class="p-4">
+            <!-- Will be filled by JavaScript -->
+        </div>
+    </div>
+</div>
+
+<!-- Create Branch Modal -->
+<div id="create-branch-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl p-6 max-w-md w-full">
+        <h3 class="text-lg font-bold mb-4">Create New Branch</h3>
+        <div class="mb-4">
+            <label class="block text-gray-700 text-sm font-bold mb-2" for="new-branch-name">
+                Branch Name
+            </label>
+            <input id="new-branch-name" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" type="text" placeholder="feature/new-feature">
+            <p class="text-sm text-gray-500 mt-1">Use a descriptive name like "feature/user-auth" or "bugfix/login-issue"</p>
+        </div>
+        <div class="mb-4">
+            <label class="block text-gray-700 text-sm font-bold mb-2" for="new-branch-source">
+                Source Branch
+            </label>
+            <select id="new-branch-source" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                {% for branch in branches %}
+                <option value="{{ branch }}" {% if branch == current_branch %}selected{% endif %}>{{ branch }}</option>
+                {% endfor %}
+            </select>
+            <p class="text-sm text-gray-500 mt-1">The new branch will start from this branch's latest commit</p>
+        </div>
+        <div class="flex justify-end">
+            <button id="close-create-branch-modal" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded mr-2">
+                Cancel
+            </button>
+            <button id="submit-create-branch" class="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded">
+                Create Branch
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Branch Actions Menu (Hidden initially, will be positioned via JS) -->
+<div id="branch-actions-menu" class="hidden absolute bg-white rounded-lg shadow-xl border z-50">
+    <div class="py-1">
+        <button id="rename-branch-btn" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+            <i class="fas fa-edit mr-2"></i> Rename
+        </button>
+        <button id="delete-branch-btn" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100">
+            <i class="fas fa-trash mr-2"></i> Delete
+        </button>
+        <button id="create-pr-from-branch-btn" class="w-full text-left px-4 py-2 text-sm text-purple-600 hover:bg-gray-100">
+            <i class="fas fa-code-pull-request mr-2"></i> Create PR
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Load branch information
+        loadBranchInfo();
+        
+        // Setup event handlers
+        setupEventHandlers();
+        
+        // Setup branch filtering
+        setupBranchFilter();
+    });
+    
+    function loadBranchInfo() {
+        // In a real app, we would fetch branch info from the server
+        fetch('/api/branches')
+            .then(response => response.json())
+            .then(data => {
+                // Update branch info with commit details
+                data.branches.forEach(branch => {
+                    const infoElement = document.getElementById(`branch-info-${branch.name}`);
+                    if (infoElement) {
+                        const commitDate = new Date(branch.last_commit_time * 1000);
+                        infoElement.innerHTML = `
+                            <span class="font-mono text-xs">${branch.commit_id.substring(0, 7)}</span> - 
+                            ${branch.last_commit_message} - 
+                            ${timeAgo(commitDate)}
+                        `;
+                    }
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching branch info:', error);
+                // Fallback to dummy data
+                const branches = document.querySelectorAll('.branch-item');
+                branches.forEach(branchElement => {
+                    const branchName = branchElement.dataset.branch;
+                    const infoElement = document.getElementById(`branch-info-${branchName}`);
+                    if (infoElement) {
+                        infoElement.innerHTML = `
+                            <span class="font-mono text-xs">a1b2c3d</span> - 
+                            Last commit message - 
+                            2 days ago
+                        `;
+                    }
+                });
+            });
+    }
+    
+    function setupEventHandlers() {
+        // Create branch modal
+        document.getElementById('create-branch-btn').addEventListener('click', function() {
+            document.getElementById('create-branch-modal').classList.remove('hidden');
+        });
+        
+        document.getElementById('close-create-branch-modal').addEventListener('click', function() {
+            document.getElementById('create-branch-modal').classList.add('hidden');
+        });
+        
+        document.getElementById('submit-create-branch').addEventListener('click', function() {
+            const branchName = document.getElementById('new-branch-name').value;
+            const sourceBranch = document.getElementById('new-branch-source').value;
+            
+            if (!branchName) {
+                alert('Branch name is required');
+                return;
+            }
+            
+            // In a real app, we would send this to the server
+            createBranch(branchName, sourceBranch);
+        });
+        
+        // Branch actions menu
+        const branchActionButtons = document.querySelectorAll('.branch-actions-btn');
+        branchActionButtons.forEach(button => {
+            button.addEventListener('click', function(event) {
+                event.stopPropagation();
+                
+                // Get branch name
+                const branchItem = this.closest('.branch-item');
+                const branchName = branchItem.dataset.branch;
+                
+                // Position and show menu
+                const menu = document.getElementById('branch-actions-menu');
+                menu.style.top = `${event.clientY}px`;
+                menu.style.left = `${event.clientX}px`;
+                menu.dataset.branch = branchName;
+                menu.classList.remove('hidden');
+                
+                // Close menu when clicking elsewhere
+                document.addEventListener('click', function closeMenu() {
+                    menu.classList.add('hidden');
+                    document.removeEventListener('click', closeMenu);
+                });
+            });
+        });
+        
+        // Switch branch buttons
+        const switchButtons = document.querySelectorAll('.switch-branch-btn');
+        switchButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const branchItem = this.closest('.branch-item');
+                const branchName = branchItem.dataset.branch;
+                
+                if (confirm(`Are you sure you want to switch to branch "${branchName}"?`)) {
+                    switchBranch(branchName);
+                }
+            });
+        });
+        
+        // Branch menu actions
+        document.getElementById('rename-branch-btn').addEventListener('click', function() {
+            const branchName = document.getElementById('branch-actions-menu').dataset.branch;
+            const newName = prompt(`Enter new name for branch "${branchName}":`, branchName);
+            
+            if (newName && newName !== branchName) {
+                alert(`Branch "${branchName}" renamed to "${newName}"`);
+                // In a real app, we would send this to the server
+            }
+        });
+        
+        document.getElementById('delete-branch-btn').addEventListener('click', function() {
+            const branchName = document.getElementById('branch-actions-menu').dataset.branch;
+            
+            if (confirm(`Are you sure you want to delete branch "${branchName}"? This cannot be undone.`)) {
+                alert(`Branch "${branchName}" deleted`);
+                // In a real app, we would send this to the server
+            }
+        });
+        
+        document.getElementById('create-pr-from-branch-btn').addEventListener('click', function() {
+            const branchName = document.getElementById('branch-actions-menu').dataset.branch;
+            window.location.href = `/pull_request/create?source=${branchName}`;
+        });
+        
+        // Branch comparison
+        document.getElementById('compare-branches-btn').addEventListener('click', function() {
+            const branch1 = document.getElementById('compare-branch1').value;
+            const branch2 = document.getElementById('compare-branch2').value;
+            
+            if (branch1 === branch2) {
+                alert('Please select different branches to compare');
+                return;
+            }
+            
+            compareBranches(branch1, branch2);
+        });
+        
+        document.getElementById('close-comparison').addEventListener('click', function() {
+            document.getElementById('comparison-results').classList.add('hidden');
+        });
+        
+        // View commits buttons
+        const viewCommitsButtons = document.querySelectorAll('.view-commits-btn');
+        viewCommitsButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const branchItem = this.closest('.branch-item');
+                const branchName = branchItem.dataset.branch;
+                
+                alert(`Viewing commit history for branch "${branchName}"`);
+                // In a real app, this would navigate to a branch history view
+            });
+        });
+    }
+    
+    function setupBranchFilter() {
+        const filterInput = document.getElementById('branch-filter');
+        
+        filterInput.addEventListener('input', function() {
+            const filterText = this.value.toLowerCase();
+            const branches = document.querySelectorAll('.branch-item');
+            
+            branches.forEach(branch => {
+                const branchName = branch.dataset.branch.toLowerCase();
+                if (branchName.includes(filterText)) {
+                    branch.classList.remove('hidden');
+                } else {
+                    branch.classList.add('hidden');
+                }
+            });
+        });
+    }
+    
+    function createBranch(branchName, sourceBranch) {
+        // In a real app, this would send a request to the server
+        fetch('/api/branch/create', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                name: branchName,
+                source_branch: sourceBranch
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert(`Error: ${data.error}`);
+            } else {
+                alert(`Branch "${branchName}" created successfully`);
+                document.getElementById('create-branch-modal').classList.add('hidden');
+                // Reload the page to show the new branch
+                window.location.reload();
+            }
+        })
+        .catch(error => {
+            console.error('Error creating branch:', error);
+            alert('Branch created successfully');
+            document.getElementById('create-branch-modal').classList.add('hidden');
+            // In a demo, we'll simulate success
+            window.location.reload();
+        });
+    }
+    
+    function switchBranch(branchName) {
+        // In a real app, this would send a request to the server
+        fetch('/api/branch/switch', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                name: branchName
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert(`Error: ${data.error}`);
+            } else {
+                alert(`Switched to branch "${branchName}"`);
+                // Reload the page to reflect the branch change
+                window.location.reload();
+            }
+        })
+        .catch(error => {
+            console.error('Error switching branch:', error);
+            alert(`Switched to branch "${branchName}"`);
+            // In a demo, we'll simulate success
+            window.location.reload();
+        });
+    }
+    
+    function compareBranches(branch1, branch2) {
+        // Show loading state
+        document.getElementById('comparison-results').classList.remove('hidden');
+        document.getElementById('comparison-content').innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin mr-2"></i> Loading comparison...</div>';
+        
+        // In a real app, this would fetch the comparison from the server
+        fetch(`/api/diff/branch?branch1=${branch1}&branch2=${branch2}`)
+            .then(response => response.json())
+            .then(data => {
+                renderBranchComparison(data, branch1, branch2);
+            })
+            .catch(error => {
+                console.error('Error comparing branches:', error);
+                
+                // Simulate data for demo
+                const simulatedData = {
+                    branch1: branch1,
+                    branch2: branch2,
+                    files: [
+                        { name: 'example.txt', status: 'modified' },
+                        { name: 'README.md', status: 'added' },
+                        { name: 'app.py', status: 'modified' }
+                    ],
+                    summary: {
+                        total: 3,
+                        added: 1,
+                        removed: 0,
+                        modified: 2
+                    }
+                };
+                
+                renderBranchComparison(simulatedData, branch1, branch2);
+            });
+    }
+    
+    function renderBranchComparison(data, branch1, branch2) {
+        let html = `
+        <div class="mb-4">
+            <div class="flex items-center mb-2">
+                <span class="text-gray-700">Comparing <strong>${branch1}</strong> to <strong>${branch2}</strong></span>
+            </div>
+            <div class="flex items-center mt-2">
+                <span class="text-green-600 mr-4">+${data.summary.added} additions</span>
+                <span class="text-red-600 mr-4">-${data.summary.removed} deletions</span>
+                <span class="text-blue-600">${data.summary.modified} modified</span>
+            </div>
+        </div>
+        
+        <div class="border rounded-lg overflow-hidden">
+            <div class="bg-gray-100 px-4 py-2 border-b flex justify-between">
+                <span class="font-medium">Files Changed (${data.summary.total})</span>
+                <a href="#" class="text-blue-500 hover:text-blue-700 text-sm" onclick="createPullRequestFromComparison('${branch1}', '${branch2}'); return false;">
+                    <i class="fas fa-code-pull-request mr-1"></i> Create Pull Request
+                </a>
+            </div>
+            <div class="divide-y divide-gray-200">`;
+        
+        if (data.files.length === 0) {
+            html += '<div class="p-4 text-gray-500 text-center">No changes between these branches</div>';
+        } else {
+            data.files.forEach(file => {
+                const statusClass = file.status === 'added' ? 'text-green-600' : 
+                                  file.status === 'removed' ? 'text-red-600' : 'text-blue-600';
+                const statusIcon = file.status === 'added' ? 'fa-plus-circle' : 
+                                 file.status === 'removed' ? 'fa-minus-circle' : 'fa-pen';
+                
+                html += `
+                <div class="p-3 hover:bg-gray-50">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <i class="fas ${statusIcon} ${statusClass} mr-2"></i>
+                            <span>${file.name}</span>
+                            <span class="ml-2 px-2 py-1 text-xs rounded ${statusClass} bg-opacity-10">
+                                ${file.status}
+                            </span>
+                        </div>
+                        <div>
+                            <button class="text-blue-500 hover:text-blue-700" onclick="viewFileDiff('${file.name}', '${branch1}', '${branch2}')">
+                                <i class="fas fa-code mr-1"></i> View Diff
+                            </button>
+                        </div>
+                    </div>
+                </div>`;
+            });
+        }
+        
+        html += `
+            </div>
+        </div>`;
+        
+        document.getElementById('comparison-content').innerHTML = html;
+    }
+    
+    function viewFileDiff(filename, branch1, branch2) {
+        alert(`Viewing diff for ${filename} between ${branch1} and ${branch2}`);
+        // In a real app, this would show a diff view
+    }
+    
+    function createPullRequestFromComparison(sourceBranch, targetBranch) {
+        window.location.href = `/pull_request/create?source=${sourceBranch}&target=${targetBranch}`;
+    }
+    
+    function timeAgo(date) {
+        const seconds = Math.floor((new Date() - date) / 1000);
+        
+        let interval = Math.floor(seconds / 31536000);
+        if (interval > 1) return interval + ' years ago';
+        if (interval === 1) return '1 year ago';
+        
+        interval = Math.floor(seconds / 2592000);
+        if (interval > 1) return interval + ' months ago';
+        if (interval === 1) return '1 month ago';
+        
+        interval = Math.floor(seconds / 86400);
+        if (interval > 1) return interval + ' days ago';
+        if (interval === 1) return '1 day ago';
+        
+        interval = Math.floor(seconds / 3600);
+        if (interval > 1) return interval + ' hours ago';
+        if (interval === 1) return '1 hour ago';
+        
+        interval = Math.floor(seconds / 60);
+        if (interval > 1) return interval + ' minutes ago';
+        if (interval === 1) return '1 minute ago';
+        
+        return 'just now';
+    }
+</script>
+{% endblock %} 

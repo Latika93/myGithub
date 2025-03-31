@@ -1,10 +1,190 @@
-<!DOCTYPE html>
-<html>
-  <head>
-    <title>{{ filename }}</title>
-  </head>
-  <body>
-    <h1>{{ filename }}</h1>
-    <pre>{{ content }}</pre>
-  </body>
-</html>
+{% extends "base.html" %}
+
+{% block title %}{{ filename }} - MyGit{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-md p-6">
+    <div class="flex justify-between items-center mb-6">
+        <div class="flex items-center">
+            <i class="fas fa-file-code text-blue-500 mr-3 text-xl"></i>
+            <h1 class="text-2xl font-semibold text-gray-800">{{ filename }}</h1>
+        </div>
+        <div class="flex space-x-2">
+            <button id="edit-file-btn" class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded shadow flex items-center">
+                <i class="fas fa-edit mr-2"></i> Edit
+            </button>
+            <button id="delete-file-btn" class="bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded shadow flex items-center">
+                <i class="fas fa-trash mr-2"></i> Delete
+            </button>
+            <button id="commit-file-btn" class="bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded shadow flex items-center">
+                <i class="fas fa-code-commit mr-2"></i> Commit
+            </button>
+        </div>
+    </div>
+
+    <div class="mb-4 flex justify-between items-center">
+        <div>
+            <a href="/" class="text-blue-500 hover:text-blue-700 flex items-center">
+                <i class="fas fa-arrow-left mr-2"></i> Back to Repository
+            </a>
+        </div>
+        <div class="flex space-x-4">
+            <div>
+                <label for="version-select" class="text-gray-600 mr-2">Version:</label>
+                <select id="version-select" class="border rounded py-1 px-2">
+                    <option value="latest">Latest</option>
+                    <option value="1">Version 1</option>
+                    <option value="2">Version 2</option>
+                </select>
+            </div>
+            <button id="history-btn" class="text-blue-500 hover:text-blue-700">
+                <i class="fas fa-history mr-1"></i> History
+            </button>
+        </div>
+    </div>
+
+    <div class="border rounded-lg overflow-hidden bg-gray-50">
+        <div class="flex p-2 bg-gray-100 border-b">
+            <div class="text-gray-600 font-mono text-sm">Code</div>
+        </div>
+        <div class="overflow-x-auto">
+            <!-- Code editor with line numbers -->
+            <div class="flex">
+                <!-- Line numbers -->
+                <div class="py-4 pr-4 text-right bg-gray-200 text-gray-500 font-mono text-sm select-none" id="line-numbers">
+                    <!-- Will be filled dynamically -->
+                </div>
+                <!-- Code content -->
+                <pre class="py-4 pl-4 font-mono text-sm overflow-visible" id="code-content">{{ content }}</pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Modal -->
+<div id="edit-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl p-6 max-w-3xl w-full">
+        <h3 class="text-lg font-bold mb-4">Edit File: {{ filename }}</h3>
+        <div class="mb-4">
+            <textarea id="file-editor" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline font-mono" rows="20">{{ content }}</textarea>
+        </div>
+        <div class="flex justify-end">
+            <button id="close-edit-modal" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded mr-2">
+                Cancel
+            </button>
+            <button id="save-file" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                Save Changes
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Commit Modal -->
+<div id="commit-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl p-6 max-w-md w-full">
+        <h3 class="text-lg font-bold mb-4">Commit Changes</h3>
+        <div class="mb-4">
+            <label class="block text-gray-700 text-sm font-bold mb-2" for="commit-message">
+                Commit Message
+            </label>
+            <textarea id="commit-message" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" rows="3"></textarea>
+        </div>
+        <div class="flex justify-end">
+            <button id="close-commit-modal" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded mr-2">
+                Cancel
+            </button>
+            <button id="submit-commit" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">
+                Commit
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/github.min.css">
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Apply syntax highlighting
+        const codeContent = document.getElementById('code-content');
+        const fileExtension = '{{ filename }}'.split('.').pop().toLowerCase();
+        
+        // Set language class based on file extension
+        if (fileExtension === 'py') {
+            codeContent.className = 'python';
+        } else if (fileExtension === 'js') {
+            codeContent.className = 'javascript';
+        } else if (fileExtension === 'html') {
+            codeContent.className = 'html';
+        } else if (fileExtension === 'css') {
+            codeContent.className = 'css';
+        } else if (fileExtension === 'json') {
+            codeContent.className = 'json';
+        }
+        
+        // Apply highlighting
+        hljs.highlightElement(codeContent);
+        
+        // Generate line numbers
+        const linesCount = (codeContent.textContent.match(/\n/g) || []).length + 1;
+        const lineNumbers = document.getElementById('line-numbers');
+        let numbersHtml = '';
+        for (let i = 1; i <= linesCount; i++) {
+            numbersHtml += i + '<br>';
+        }
+        lineNumbers.innerHTML = numbersHtml;
+        
+        // Set up modal handlers
+        document.getElementById('edit-file-btn').addEventListener('click', function() {
+            document.getElementById('edit-modal').classList.remove('hidden');
+        });
+        
+        document.getElementById('close-edit-modal').addEventListener('click', function() {
+            document.getElementById('edit-modal').classList.add('hidden');
+        });
+        
+        document.getElementById('save-file').addEventListener('click', function() {
+            const newContent = document.getElementById('file-editor').value;
+            // In a real app, this would save changes to the server
+            alert('Changes saved');
+            document.getElementById('edit-modal').classList.add('hidden');
+            // In a real app, we'd reload the page or update the view
+        });
+        
+        document.getElementById('delete-file-btn').addEventListener('click', function() {
+            if (confirm(`Are you sure you want to delete {{ filename }}?`)) {
+                // In a real app, this would send a delete request to the server
+                alert(`File {{ filename }} deleted`);
+                window.location.href = '/';
+            }
+        });
+        
+        document.getElementById('commit-file-btn').addEventListener('click', function() {
+            document.getElementById('commit-modal').classList.remove('hidden');
+        });
+        
+        document.getElementById('close-commit-modal').addEventListener('click', function() {
+            document.getElementById('commit-modal').classList.add('hidden');
+        });
+        
+        document.getElementById('submit-commit').addEventListener('click', function() {
+            const message = document.getElementById('commit-message').value;
+            // In a real app, this would send data to the server
+            alert(`Changes committed with message: ${message}`);
+            document.getElementById('commit-modal').classList.add('hidden');
+        });
+        
+        document.getElementById('history-btn').addEventListener('click', function() {
+            alert(`Viewing history for {{ filename }}`);
+            // In a real app, this would navigate to a history view
+        });
+        
+        document.getElementById('version-select').addEventListener('change', function() {
+            const version = this.value;
+            alert(`Loading version ${version} of {{ filename }}`);
+            // In a real app, this would load the selected version
+        });
+    });
+</script>
+{% endblock %}
